@@ -1,1 +1,1 @@
-Please note that users must create their own database using the CSV file, as it isn't hosted. 
+Database is included. Not hosted online, needs self-hosted.
