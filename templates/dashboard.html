@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>McDonaldsTracker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+    <link rel="stylesheet" href="/static/Leaflet.markercluster-1.4.1/Leaflet.markercluster-1.4.1/dist/MarkerCluster.css"/>
+    <link rel="stylesheet" href = "/static/Leaflet.markercluster-1.4.1/Leaflet.markercluster-1.4.1/dist/MarkerCluster.Default.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin="">
+    </script>
+    <script src = "/static/Leaflet.markercluster-1.4.1/Leaflet.markercluster-1.4.1/dist/leaflet.markercluster-src.js"></script>
+    <script src = "/static/Leaflet.markercluster-1.4.1/Leaflet.markercluster-1.4.1/src/MarkerCluster.js"></script>
+    <style>
+
+      body {
+         display:flex;
+         flex-direction:column;
+         margin: 0;
+         font-family: Arial, sans-serif;
+         background-color: #121212;
+         color: #ffffff;
+         height:100vh;
+      }
+
+      .title-bar {
+         background-color: #1f1f1f;
+         padding: 20px;
+         text-align: center;
+         border-bottom: 1px solid #333;
+         position: sticky;
+         top: 0;
+         z-index: 10;
+      }
+
+      .title-bar h1 {
+         color: #FFC72C;
+         margin: 0;
+         font-size: 28px;
+      }
+
+      .title-bar p {
+         margin: 5px 0 10px;
+         font-size: 16px;
+         color: #bbbbbb;
+      }
+
+      .btn-logout {
+         display: inline-block;
+         margin-top: 10px;
+         padding: 8px 16px;
+         background-color: #e53935;
+         color: white;
+         text-decoration: none;
+         border-radius: 4px;
+         font-weight: bold;
+      }
+
+      .main-content {
+         display: flex;
+         flex-direction: row;
+         height: 80%;
+         width:97%;
+         padding: 20px;
+         gap: 20px;
+      }
+
+      .left-panel {
+         display:flex;
+         flex:2;
+         background-color: #1e1e1e;
+         border-radius: 8px;
+         padding: 5px;
+      }
+
+      #map {
+         flex:1;
+         height:100%;
+         width:100%;
+         background-color: #333;
+         border-radius: 6px;
+      }
+
+      .right-panel {
+         flex:1;
+         background-color: #1e1e1e;
+         border-radius: 8px;
+         padding: 10px;
+      }
+
+      .scrolldiv {
+         display:flex;
+         flex-direction: column;
+         height:100%;
+         flex:1;
+         overflow-y: auto;
+      }
+
+      .scrollcont {
+         height:30 px;
+         background-color: #302e2e;
+         border-radius: 6px;
+         box-shadow: 2px 3px #121212;
+         padding-left:5px;
+         padding-top: 10px;
+         padding-bottom: 10px;
+         margin-bottom:10px;
+         color: #FFC72C;
+         font-size:large;
+         font-family:'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+      }
+    </style>
+
+</head>
+<body>
+   <div class="title-bar">
+      <h1>Welcome, {{username}}!</h1>
+      <p>Check out your McMap!</p>
+      <a href="{{url_for('logout')}}" class="btn btn-logout">Logout</a>
+   </div>
+   <div class = "main-content">
+      <div class="left-panel">
+         <div id="map"></div>
+      </div>
+      <div class="right-panel">
+         <div id = "scrolldiv" class="scrolldiv">
+         </div>
+      </div>
+   </div>
+
+      <script>
+         var custIcon = L.icon({
+            iconUrl: '/static/icon.png',
+
+            iconSize: [15,15],
+            popupAncher: [0,35]
+         });
+
+         const obj = {
+            fetchget() {
+               fetch('/getMcDonalds')
+                  .then(response => response.json())
+                  .then(data => {
+                  const arra = data.my_array;
+                  console.log(arra)
+                  if (arra != undefined){
+                     markerGroup.clearLayers();
+                     for (let i = 0; i < arra.length; i++) {
+                        let address = arra[i][0];
+                        let lat = arra[i][2];
+                        let long = arra[i][1];
+                        let id = arra[i][3]
+
+                        var marker = L.marker([lat, long], {icon: custIcon}).addTo(markerGroup);
+                        marker.bindPopup(address);
+
+                        marker.on('click', function(e) {
+                           console.log("AHHHHH");
+                           fetch("{{url_for('AddorDeleteMcDonaldsLocal')}}", {
+                              method: 'POST',
+                              headers: {
+                                 'Content-Type': 'application/json'
+                              },
+                              body: JSON.stringify({'id': id })
+                           })
+                           .then(response => response.json())
+                           .then(json => {
+                              console.log(json);
+                              obj.fetchget();
+                           });
+
+                           
+                        });
+                     }
+                  }
+               })
+            },
+
+            moveend() {
+               latitude = map.getCenter().lat;
+               longitude = map.getCenter().wrap().lng;
+               fetch(`/addMcDonaldsScroll?latitude=${latitude}&longitude=${longitude}`)
+                  .then(response => response.json())
+                  .then(arr => {
+
+                  if(arr.length === 0){
+                     newdiv = document.createElement("div");
+                     parentDiv.append(newdiv);
+                     newdiv.setAttribute("class", "scrollcont")
+                     newdiv.textContent = "No Results Found";
+                  }
+                  else{
+                     for (let i = 0; i < arr.length; i++){
+                        newdiv = document.createElement("div");
+                        parentDiv.append(newdiv);
+                        newdiv.setAttribute("class", "scrollcont")
+
+                        if (String(arr[i][0]).trim() == ""){
+                           newdiv.textContent = "No Address Given"
+                        }
+                        else{
+                           newdiv.textContent = arr[i][0];
+                        }
+
+                        newdiv.addEventListener("click", function() {
+                           fetch("{{url_for('AddorDeleteMcDonaldsLocal')}}", {
+                           method: 'POST',
+                           headers: {
+                              'Content-Type': 'application/json'
+                           },
+                           body: JSON.stringify({
+                              'id' : arr[i][1],
+                           })
+                           }).then(response => response.json())
+
+                           .then(json => {
+                              obj.fetchget();
+                           });
+
+                        });
+                     }
+                  }
+               })
+            }
+         };
+
+         var map = L.map('map').setView([39, -98], 4);
+         map.locate({setView: true});
+         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+         maxZoom: 19,
+         attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+         }).addTo(map);
+         
+
+         var clusterGroup = L.markerClusterGroup();
+         fetch('/addAllLocations')
+         .then(response => response.json())
+         .then(allLocals => {
+            for (let i = 0; i < allLocals.length; i++){
+               var circle = L.circle([allLocals[i][1], allLocals[i][0]]).addTo(clusterGroup);
+               circle.on('click', function(e) {
+                  fetch("{{url_for('AddorDeleteMcDonaldsLocal')}}", {
+                     method: 'POST',
+                     headers: {
+                        'Content-Type': 'application/json'
+                     },
+                     body: JSON.stringify({'id': allLocals[i][2] })
+                  })
+                  .then(response => response.json())
+                  .then(json => {
+
+                     circle.remove();
+                     obj.fetchget();
+
+                  });
+               });
+            }
+         });
+
+         map.addLayer(clusterGroup);
+         var markerGroup = L.featureGroup().addTo(map);
+         parentDiv = document.getElementById("scrolldiv");
+
+         obj.moveend();
+         obj.fetchget();
+
+         map.on('moveend', function(){
+            parentDiv.innerHTML = "";
+            obj.moveend();
+         });
+
+
+      </script>
+</body>
+</html>
+
+
